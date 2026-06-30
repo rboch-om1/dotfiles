@@ -1,12 +1,5 @@
 # Global Instructions
 
-> Tracked in the dotfiles repo and installed by `./setup` to `~/.claude/CLAUDE.md`
-> (which is persisted on EBS at `/mnt/devdata/.claude/CLAUDE.md`).
->
-> `setup` only **copies this file if `~/.claude/CLAUDE.md` does not already exist**,
-> so live edits on the box are never clobbered. If you change your live file and
-> want the change tracked, copy it back into the repo and commit.
-
 ## Docstrings
 
 **When writing or modifying functions, methods, or classes, always include a comprehensive docstring** — not just a one-line description. Document `Args:` (each parameter) and `Returns:` (and `Raises:` when relevant). Match the project's existing docstring style (e.g. Google, NumPy).
@@ -21,10 +14,10 @@
 
 ### Commands
 
-| Step        | Command                                   | When                                                |
-| ----------- | ----------------------------------------- | --------------------------------------------------- |
-| **Build**   | `task obt:devcontainer-build`             | First time, or after devcontainer config changes    |
-| **Start**   | `task obt:devcontainer-up`                | Before running any in-container commands            |
+| Step | Command | When |
+|------|---------|------|
+| **Build** | `task obt:devcontainer-build` | First time, or after devcontainer config changes |
+| **Start** | `task obt:devcontainer-up` | Before running any in-container commands |
 | **Execute** | `task obt:devcontainer-exec -- <command>` | All commits, pre-commit hooks, linting, tests, etc. |
 
 ### Examples
@@ -65,24 +58,24 @@ task obt:devcontainer-exec -- make test
 
 ### Defaults
 
-| Field             | Default                                                                        |
-| ----------------- | ------------------------------------------------------------------------------ |
-| **Project**       | `EX`                                                                           |
-| **Sprint**        | The most recent **TI Sprint**                                                  |
-| **Story Points**  | A base estimate of `1`, `3`, `5`, or `8` based on complexity (see scale below) |
-| **Assignee**      | Me (the user)                                                                  |
-| **Epic / Parent** | A sensible **existing** Epic/Parent — categorize appropriately                 |
+| Field | Default |
+|-------|---------|
+| **Project** | `EX` |
+| **Sprint** | The most recent **TI Sprint** |
+| **Story Points** | A base estimate of `1`, `3`, `5`, or `8` based on complexity (see scale below) |
+| **Assignee** | Me (the user) |
+| **Epic / Parent** | A sensible **existing** Epic/Parent — categorize appropriately |
 
 ### Story Point Scale
 
 Choose the base story points by complexity:
 
-| Points | Complexity                                                 |
-| ------ | ---------------------------------------------------------- |
-| **1**  | Trivial — quick change, well understood, minimal effort    |
-| **3**  | Small — straightforward, some effort, low uncertainty      |
-| **5**  | Medium — moderate effort, multiple steps, some unknowns    |
-| **8**  | Large — significant effort, high complexity or uncertainty |
+| Points | Complexity |
+|--------|------------|
+| **1** | Trivial — quick change, well understood, minimal effort |
+| **3** | Small — straightforward, some effort, low uncertainty |
+| **5** | Medium — moderate effort, multiple steps, some unknowns |
+| **8** | Large — significant effort, high complexity or uncertainty |
 
 ### Rules
 

@@ -11,9 +11,9 @@ log_dir="$HOME/.claude/cost-logs"
 [ -d "$log_dir" ] || exit 0
 
 # Cutoff = midnight UTC, RETENTION_DAYS ago, in seconds since epoch.
-cutoff=$(date -u -v-"${RETENTION_DAYS}"d +%s 2>/dev/null) ||
-    cutoff=$(date -u -d "${RETENTION_DAYS} days ago" +%s 2>/dev/null) ||
-    exit 0
+cutoff=$(date -u -v-"${RETENTION_DAYS}"d +%s 2>/dev/null) \
+    || cutoff=$(date -u -d "${RETENTION_DAYS} days ago" +%s 2>/dev/null) \
+    || exit 0
 
 for f in "$log_dir"/*.jsonl; do
     [ -e "$f" ] || continue
@@ -21,14 +21,14 @@ for f in "$log_dir"/*.jsonl; do
 
     # Expect YYYY-MM-DD; skip anything that doesn't match.
     case "$base" in
-    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
-    *) continue ;;
+        [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+        *) continue ;;
     esac
 
     # Convert the filename date to epoch seconds (BSD then GNU date).
-    file_epoch=$(date -u -j -f "%Y-%m-%d" "$base" +%s 2>/dev/null) ||
-        file_epoch=$(date -u -d "$base" +%s 2>/dev/null) ||
-        continue
+    file_epoch=$(date -u -j -f "%Y-%m-%d" "$base" +%s 2>/dev/null) \
+        || file_epoch=$(date -u -d "$base" +%s 2>/dev/null) \
+        || continue
 
     if [ "$file_epoch" -lt "$cutoff" ]; then
         rm -f "$f" 2>/dev/null

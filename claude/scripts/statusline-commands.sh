@@ -43,7 +43,7 @@ rate_5h_resets=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // 0' |
         cost_usd: .cost.total_cost_usd,
         rate_5h_used_pct: .rate_limits.five_hour.used_percentage,
         rate_5h_resets_at: .rate_limits.five_hour.resets_at
-    }' >>"$cost_log_dir/$(date -u +%Y-%m-%d).jsonl"
+    }' >> "$cost_log_dir/$(date -u +%Y-%m-%d).jsonl"
 } 2>/dev/null || true
 
 # Helpers: build a colored bar of given width
@@ -56,8 +56,8 @@ make_bar() {
     local empty=$((width - filled))
     local bar=""
     local i
-    for ((i = 0; i < filled; i++)); do bar+="█"; done
-    for ((i = 0; i < empty; i++)); do bar+="░"; done
+    for ((i=0; i<filled; i++)); do bar+="█"; done
+    for ((i=0; i<empty; i++)); do bar+="░"; done
     printf "%b%s\033[0m" "$color" "$bar"
 }
 
@@ -94,7 +94,7 @@ context_meter=$(printf "1M:[%b] %3d%% \xC2\xB7 200K:[%b] %3d%%%b" "$bar1m" "$per
 dir_name=$(basename "$cwd")
 
 # Check if in a git repository
-if git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
+if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
     # Get current branch name
     branch=$(git -C "$cwd" --no-optional-locks rev-parse --abbrev-ref HEAD 2>/dev/null)
 
@@ -125,7 +125,7 @@ if [ "$rate_5h_used" -gt 0 ] 2>/dev/null; then
     elif [ "$rate_5h_left" -le 50 ]; then
         rate_color="\033[0;33m"
     else
-        rate_color="\033[0;37m" # light gray (more visible than \033[0;90m)
+        rate_color="\033[0;37m"  # light gray (more visible than \033[0;90m)
     fi
     # Time-to-reset (h:mm), only if resets_at is in the future
     rate_eta=""
