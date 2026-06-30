@@ -25,7 +25,7 @@ log()  { echo "[$(date -Iseconds)] $*"; }
 warn() { log "WARN: $*"; }
 
 # --- Machine-local git identity (only applied if ~/.gitconfig has none) -------
-GIT_NAME="REPLACE_ME"          # TODO(rboch): set your name for git commits
+GIT_NAME="Ryan Boch"          # name for git commits on the devenv
 GIT_EMAIL="rboch@om1.com"
 
 # Resolve the repo root from this script's own location so it can be run from
