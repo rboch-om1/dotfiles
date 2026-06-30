@@ -1,0 +1,43 @@
+# Shared git configuration, tracked in the dotfiles repo.
+#
+# This file is meant to be *included* by a real ~/.gitconfig (see ./setup),
+# NOT symlinked to it. Keep it free of machine-specific state: identity and
+# credential helpers live in ~/.gitconfig so that `git config --global` and
+# `gh auth setup-git` writes stay local instead of dirtying this tracked file.
+
+[core]
+    editor = vim
+    pager  = less -F
+
+[color]
+    ui = auto
+
+[push]
+    default         = current
+    autoSetupRemote = true
+
+[init]
+    defaultBranch = main
+
+[pull]
+    rebase = true
+
+[fetch]
+    prune = true
+
+[rerere]
+    enabled = true
+
+[commit]
+    verbose = true
+
+[merge]
+    conflictStyle = zdiff3
+
+[alias]
+    st  = status -sb
+    co  = checkout
+    br  = branch
+    ci  = commit
+    lg  = log --oneline --graph --decorate -20
+    last = log -1 HEAD --stat

@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+#
+# Dotfiles setup for the OM1 devenv (Ubuntu host) — rboch.
+#
+# This is the script the devenv provisioner runs as your user during every
+# `devenv up`/`rebuild` (wired via dotfiles_script in environment.tfvars).
+#
+# Design mirrors the OM1 convention (jyates-om1/dotfiles): symlinking the
+# tracked dotfiles is the only step that MUST succeed, so it runs first and
+# unconditionally. Everything else (tool installs, Claude wiring) is best-effort:
+# a failure warns and continues instead of aborting the whole provision. On a
+# pre-provisioned host most tools already exist, so those blocks no-op.
+#
+# Differences from the upstream template:
+#   - tmux/.tmux.conf is this repo's own (mouse + OSC52 + tab-style status bar);
+#     no tmux plugin manager / catppuccin etc., so no plugin bootstrap block.
+#   - The login shell is left as-is (zsh) — bash config is shipped and applies
+#     when you run bash, but we do NOT chsh.
+#   - Adds a Claude Code block (global CLAUDE.md, status line + cost-log scripts,
+#     settings.json merge) and a clean_repos.sh maintenance helper.
+
+set -uo pipefail
+
+log()  { echo "[$(date -Iseconds)] $*"; }
+warn() { log "WARN: $*"; }
+
+# --- Machine-local git identity (only applied if ~/.gitconfig has none) -------
+GIT_NAME="REPLACE_ME"          # TODO(rboch): set your name for git commits
+GIT_EMAIL="rboch@om1.com"
+
+# Resolve the repo root from this script's own location so it can be run from
+# anywhere (including as the devenv provisioning hook).
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+log "Using dotfiles repo at: $REPO_DIR"
+
+# ============================================================================
+# 1. Symlink dotfiles  (critical block — runs first, never blocks on installs)
+# ============================================================================
+log "Symlinking dotfiles..."
+
+# Back up existing REAL files (leave symlinks from previous runs alone).
+for f in .bashrc .bash_profile .tmux.conf; do
+    if [ -f "$HOME/$f" ] && [ ! -L "$HOME/$f" ]; then
+        mv "$HOME/$f" "$HOME/${f}.backup"
+        log "Backed up existing $f -> ${f}.backup"
+    fi
+done
+
+ln -sfn "$REPO_DIR/bash/.bashrc"       "$HOME/.bashrc"
+ln -sfn "$REPO_DIR/bash/.bash_profile" "$HOME/.bash_profile"
+ln -sfn "$REPO_DIR/tmux/.tmux.conf"    "$HOME/.tmux.conf"
+log "Symlinked .bashrc, .bash_profile, .tmux.conf"
+# NOTE: this replaces any prior ~/.tmux.conf symlink (e.g. one that pointed at
+# /mnt/devdata/.tmux.conf under the old manual-persistence scheme). The tmux
+# config is now versioned here, so a stale /mnt/devdata/.tmux.conf can be
+# deleted at your leisure.
+
+# ============================================================================
+# 2. gitconfig  (skip inside devcontainers — they auto-load the host gitconfig)
+# ============================================================================
+#
+# ~/.gitconfig is a REAL machine-local file that *includes* the tracked
+# template. It must NOT be a symlink to the template: `git config --global` and
+# `gh auth setup-git` write to ~/.gitconfig, and a symlink would route those
+# machine-specific writes into version control.
+if [ -z "${REMOTE_CONTAINERS:-}" ] && [ -z "${CODESPACES:-}" ] && [ ! -f "/.dockerenv" ]; then
+    GITCONFIG_INCLUDE="$REPO_DIR/git/gitconfig_template"
+
+    if [ -L "$HOME/.gitconfig" ]; then
+        rm -f "$HOME/.gitconfig"
+        log "Removed legacy ~/.gitconfig symlink"
+    fi
+
+    # ~/.gitconfig may be absent, or seeded as an EMPTY file by the devenv
+    # provisioner (it pre-creates the file so Docker can't bind-mount it into a
+    # root-owned directory — DEVO-7771). Either way, ensure it exists, pulls in
+    # the shared template, and carries machine-local identity. Each step is
+    # idempotent and writes only to the real ~/.gitconfig, never the template.
+    if [ ! -f "$HOME/.gitconfig" ]; then
+        : > "$HOME/.gitconfig"
+        log "Created ~/.gitconfig"
+    fi
+
+    if ! git config --global --get-all include.path 2>/dev/null | grep -qxF "$GITCONFIG_INCLUDE"; then
+        git config --global --add include.path "$GITCONFIG_INCLUDE" \
+            && log "Added template include to ~/.gitconfig" \
+            || warn "could not add include.path to ~/.gitconfig"
+    else
+        log "~/.gitconfig already includes the template"
+    fi
+
+    if [ -z "$(git config --global --get user.name 2>/dev/null)" ]; then
+        if [ "$GIT_NAME" = "REPLACE_ME" ]; then
+            warn "GIT_NAME not set in setup; skipping git identity. Edit setup or run: git config --global user.name '...'"
+        else
+            git config --global user.name  "$GIT_NAME"
+            git config --global user.email "$GIT_EMAIL" \
+                && log "Set git identity in ~/.gitconfig ($GIT_NAME <$GIT_EMAIL>)" \
+                || warn "could not set git identity in ~/.gitconfig"
+        fi
+    else
+        log "~/.gitconfig already has a user identity"
+    fi
+else
+    log "Devcontainer detected, skipping gitconfig (auto-loaded from host)"
+fi
+
+# ============================================================================
+# 3. Docker config  (enables the ECR credential helper for image pulls)
+# ============================================================================
+mkdir -p "$HOME/.docker"
+if [ -f "$HOME/.docker/config.json" ] && [ ! -L "$HOME/.docker/config.json" ]; then
+    mv "$HOME/.docker/config.json" "$HOME/.docker/config.json.backup"
+    log "Backed up existing docker config.json"
+fi
+ln -sfn "$REPO_DIR/docker/config.json" "$HOME/.docker/config.json"
+log "Symlinked ~/.docker/config.json"
+
+# ============================================================================
+# 4. Claude Code  (global CLAUDE.md, status line + cost-log scripts, settings)
+# ============================================================================
+#
+# ~/.claude is symlinked onto EBS by the provisioner, so this content persists
+# between rebuilds once installed. We still (re)install on every run so a fresh
+# volume or a teammate's first boot ends up fully wired with no manual steps.
+CLAUDE_DIR="$HOME/.claude"
+mkdir -p "$CLAUDE_DIR/scripts"
+
+# 4a. Scripts: symlink (they aren't hand-edited) + ensure executable.
+for s in statusline-commands.sh cleanup-cost-logs.sh; do
+    ln -sfn "$REPO_DIR/claude/scripts/$s" "$CLAUDE_DIR/scripts/$s"
+done
+chmod +x "$REPO_DIR"/claude/scripts/*.sh 2>/dev/null || true
+log "Linked Claude status-line + cost-log scripts into ~/.claude/scripts"
+
+# 4b. Global CLAUDE.md: COPY only if missing (never clobber live edits).
+if [ ! -e "$CLAUDE_DIR/CLAUDE.md" ]; then
+    cp "$REPO_DIR/claude/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
+    log "Installed ~/.claude/CLAUDE.md from repo"
+else
+    log "~/.claude/CLAUDE.md already present; left untouched"
+fi
+
+# 4c. settings.json: merge in statusLine + the cost-log SessionStart hook,
+# idempotently, without dropping any other keys/hooks the user has. Requires jq.
+if command -v jq >/dev/null 2>&1; then
+    SETTINGS="$CLAUDE_DIR/settings.json"
+    SNIPPET="$REPO_DIR/claude/settings.snippet.json"
+    [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
+    tmp="$(mktemp)"
+    # - statusLine: take from snippet (overwrite).
+    # - hooks.SessionStart: keep existing groups, append the snippet's group
+    #   only if no existing hook already references cleanup-cost-logs.sh.
+    if jq -s '
+        .[0] as $cur | .[1] as $snip
+        | ($cur.hooks.SessionStart // []) as $ss
+        | ([ $ss[].hooks[]? | .command // "" ] | any(test("cleanup-cost-logs\\.sh"))) as $has
+        | $cur
+        | .statusLine = $snip.statusLine
+        | .hooks = (($cur.hooks // {})
+            | .SessionStart = (if $has then $ss else ($ss + $snip.hooks.SessionStart) end))
+    ' "$SETTINGS" "$SNIPPET" > "$tmp" 2>/dev/null; then
+        mv "$tmp" "$SETTINGS"
+        log "Merged statusLine + cost-log SessionStart hook into ~/.claude/settings.json"
+    else
+        rm -f "$tmp"
+        warn "jq merge of ~/.claude/settings.json failed; left as-is"
+    fi
+else
+    warn "jq not found; skipping ~/.claude/settings.json merge"
+fi
+
+# ============================================================================
+# 5. clean_repos.sh maintenance helper  (must live in ~/code; it cleans its
+#    own directory, so it can't go in a generic bin/ on PATH)
+# ============================================================================
+CODE_DIR="$HOME/code"
+if [ -d "$CODE_DIR" ]; then
+    if [ -f "$CODE_DIR/clean_repos.sh" ] && [ ! -L "$CODE_DIR/clean_repos.sh" ]; then
+        mv "$CODE_DIR/clean_repos.sh" "$CODE_DIR/clean_repos.sh.backup"
+        log "Backed up existing ~/code/clean_repos.sh -> .backup"
+    fi
+    ln -sfn "$REPO_DIR/scripts/clean_repos.sh" "$CODE_DIR/clean_repos.sh"
+    chmod +x "$REPO_DIR/scripts/clean_repos.sh" 2>/dev/null || true
+    log "Linked ~/code/clean_repos.sh"
+else
+    warn "~/code not present; skipping clean_repos.sh link"
+fi
+
+# ============================================================================
+# 6. Best-effort tool installs — only when missing (skipped on provisioned host)
+# ============================================================================
+
+# starship prompt (used by bash/.bashrc)
+if ! command -v starship >/dev/null 2>&1; then
+    log "Installing starship..."
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSL https://starship.rs/install.sh \
+        | sh -s -- -y -b "$HOME/.local/bin" \
+        || warn "starship install failed; bash prompt falls back to default PS1"
+else
+    log "starship already installed"
+fi
+
+# Docker ECR credential helper (referenced by docker/config.json)
+if ! command -v docker-credential-ecr-login >/dev/null 2>&1; then
+    ARCH="$(uname -m)"
+    case "$ARCH" in
+        x86_64|amd64) ecr_arch="amd64" ;;
+        arm64|aarch64) ecr_arch="arm64" ;;
+        *) ecr_arch="" ; warn "unknown arch $ARCH; skipping ECR helper" ;;
+    esac
+    if [ -n "$ecr_arch" ]; then
+        log "Installing docker-credential-ecr-login..."
+        ECR_VERSION="0.11.0"
+        ECR_URL="https://amazon-ecr-credential-helper-releases.s3.us-east-2.amazonaws.com/${ECR_VERSION}/linux-${ecr_arch}/docker-credential-ecr-login"
+        if curl -fSL "$ECR_URL" -o /tmp/docker-credential-ecr-login \
+            && { sudo -n true 2>/dev/null || sudo true 2>/dev/null; }; then
+            chmod +x /tmp/docker-credential-ecr-login
+            sudo mv /tmp/docker-credential-ecr-login /usr/local/bin/docker-credential-ecr-login \
+                && log "ECR credential helper installed" \
+                || warn "ECR helper install failed"
+        else
+            warn "could not download ECR helper or no sudo; skipping"
+        fi
+        rm -f /tmp/docker-credential-ecr-login
+    fi
+else
+    log "ECR credential helper already installed"
+fi
+
+log "Dotfiles installation complete."
+log "bash config is shipped but the login shell is left as-is; run 'exec bash -l' to try it."

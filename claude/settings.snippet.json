@@ -1,0 +1,20 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/scripts/statusline-commands.sh"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/scripts/cleanup-cost-logs.sh",
+            "statusMessage": "Cleaning up old cost logs...",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
