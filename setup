@@ -188,7 +188,28 @@ else
 fi
 
 # ============================================================================
-# 6. Best-effort tool installs — only when missing (skipped on provisioned host)
+# 6. Jupyter bridge for ti-core  (COPIED, not symlinked — the devcontainer
+#    bind-mounts only the repo dir, so a symlink out of it would be dangling
+#    inside the container where autostart.sh runs)
+# ============================================================================
+#
+# The bridge is gitignored in ti-core (personal tooling, not enforced on the
+# team), so this repo is its source of truth: edit here, re-run setup to
+# deploy. clean_repos.sh excludes .devcontainer/jupyter from `git clean`, and
+# this block restores it on every rebuild regardless.
+TI_CORE="$HOME/code/ti-core"
+if [ -d "$TI_CORE" ]; then
+    mkdir -p "$TI_CORE/.devcontainer/jupyter"
+    cp -rf "$REPO_DIR/jupyter-bridge/." "$TI_CORE/.devcontainer/jupyter/" \
+        && chmod +x "$TI_CORE/.devcontainer/jupyter/"*.sh \
+        && log "Installed Jupyter bridge into ti-core/.devcontainer/jupyter" \
+        || warn "could not install Jupyter bridge into ti-core"
+else
+    warn "~/code/ti-core not present; skipping Jupyter bridge install"
+fi
+
+# ============================================================================
+# 7. Best-effort tool installs — only when missing (skipped on provisioned host)
 # ============================================================================
 
 # starship prompt (used by bash/.bashrc)

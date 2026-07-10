@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "/home/om1/.local/bin/uv",
+    "run",
+    "--project",
+    "/usr/src/library",
+    "--with",
+    "ipykernel",
+    "python",
+    "-m",
+    "ipykernel_launcher",
+    "-f",
+    "{connection_file}"
+  ],
+  "display_name": "TI Core (library)",
+  "language": "python"
+}

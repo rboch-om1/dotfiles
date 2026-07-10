@@ -21,7 +21,8 @@ On every `devenv up` / `devenv rebuild`, the provisioner clones this repo and ru
 | `claude/CLAUDE.md` | Global Claude Code instructions (docstrings, devcontainer workflow, JIRA defaults). |
 | `claude/scripts/*.sh` | Claude status line (context/cost/rate-limit meter) + a `SessionStart` cost-log cleanup hook. |
 | `claude/settings.snippet.json` | The `statusLine` + `SessionStart` blocks `setup` merges into `~/.claude/settings.json`. |
-| `scripts/clean_repos.sh` | Maintenance helper that resets `~/code` repos + Docker to a near-pristine state to reclaim disk. |
+| `jupyter-bridge/` | Devcontainer Jupyter bridge for ti-core (`# %%` cells from host Cursor/VS Code). Gitignored in ti-core; **this repo is the source of truth** — see its `SETUP.md`. |
+| `scripts/clean_repos.sh` | Maintenance helper that resets `~/code` repos + Docker to a near-pristine state to reclaim disk (preserves `.devcontainer/jupyter`). |
 
 ## What `setup` does
 
@@ -36,7 +37,10 @@ On every `devenv up` / `devenv rebuild`, the provisioner clones this repo and ru
    `jq`, idempotent — other keys/hooks are preserved).
 5. **clean_repos.sh** — symlinks it into `~/code` (it operates on its own directory,
    so it must live there).
-6. **Best-effort installs** — `starship` and the ECR credential helper, only if absent.
+6. **Jupyter bridge** — copies `jupyter-bridge/` into
+   `~/code/ti-core/.devcontainer/jupyter/` (copied, not symlinked: the devcontainer
+   bind-mounts only the repo dir, so symlinks out of it break inside the container).
+7. **Best-effort installs** — `starship` and the ECR credential helper, only if absent.
 
 ### Differences from the upstream template
 

@@ -13,7 +13,8 @@
 #   5. removes every locally built vsc-* devcontainer image (incl. -uid variants)
 #
 # Left intact: pulled images (obt base, pgvector, node, traefik, redis, obt-mkcert),
-# the obt-traefik stack, and the BuildKit build cache (run `docker buildx prune` for that).
+# the obt-traefik stack, the BuildKit build cache (run `docker buildx prune` for that),
+# and per-repo .notebooks/.sql_scripts/.devcontainer/jupyter directories.
 #
 # Usage: clean-repos.sh [--dry-run] [-y|--yes]
 
@@ -46,14 +47,16 @@ run() {
 }
 
 # git clean with a useful file-level preview under --dry-run.
-# Keep embedded .notebooks and .sql_scripts directories (-e excludes them).
+# Keep embedded .notebooks, .sql_scripts, and the gitignored Jupyter bridge
+# (.devcontainer/jupyter — deployed by ../setup, see ../jupyter-bridge/).
+CLEAN_EXCLUDES=(-e .notebooks -e .sql_scripts -e .devcontainer/jupyter)
 clean_repo() {
     local r="$1"
     if $DRY_RUN; then
-        printf '  + git -C %s clean -xdff -e .notebooks -e .sql_scripts  (preview, first 15 paths):\n' "$r"
-        git -C "$r" clean -xdffn -e .notebooks -e .sql_scripts 2>/dev/null | head -15 | sed 's/^/      /'
+        printf '  + git -C %s clean -xdff %s  (preview, first 15 paths):\n' "$r" "${CLEAN_EXCLUDES[*]}"
+        git -C "$r" clean -xdffn "${CLEAN_EXCLUDES[@]}" 2>/dev/null | head -15 | sed 's/^/      /'
     else
-        run git -C "$r" clean -xdff -e .notebooks -e .sql_scripts
+        run git -C "$r" clean -xdff "${CLEAN_EXCLUDES[@]}"
     fi
 }
 
