@@ -101,6 +101,24 @@ if [ -z "${REMOTE_CONTAINERS:-}" ] && [ -z "${CODESPACES:-}" ] && [ ! -f "/.dock
     else
         log "~/.gitconfig already has a user identity"
     fi
+
+    # gh credential helpers. `gh auth setup-git` writes these too, but it
+    # rewrites ~/.gitconfig via rename — any devcontainer that already
+    # bind-mounted the file stays pinned to the stale inode and never sees the
+    # helpers (and can't add them itself: the mount is read-only, so writes
+    # fail with "Device or resource busy"). Seeding them here puts them in
+    # place before any devcontainer is created, so setup-git never needs to
+    # run. The helper line is static; auth state lives in ~/.config/gh.
+    if git config --global --get-all 'credential.https://github.com.helper' 2>/dev/null | grep -qF 'gh auth git-credential'; then
+        log "~/.gitconfig already has gh credential helpers"
+    else
+        for gh_host in 'https://github.com' 'https://gist.github.com'; do
+            git config --global "credential.${gh_host}.helper" '' \
+                && git config --global --add "credential.${gh_host}.helper" '!/usr/bin/gh auth git-credential' \
+                || warn "could not seed gh credential helper for ${gh_host}"
+        done
+        log "Seeded gh credential helpers into ~/.gitconfig"
+    fi
 else
     log "Devcontainer detected, skipping gitconfig (auto-loaded from host)"
 fi
