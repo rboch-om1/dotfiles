@@ -1,5 +1,15 @@
 # ~/.bashrc — OM1 devenv (managed by the dotfiles repo; symlinked by ./setup)
 
+# ---- Locale ----------------------------------------------------------------
+# Guarantee a UTF-8 locale even in shells spawned with a stripped environment
+# (editor-server terminals, provisioning hooks); POSIX-locale shells mangle
+# multibyte output/copy paths. Runs before the interactivity check so
+# non-interactive bash gets it too.
+case "${LANG:-}" in
+    *.UTF-8 | *.utf8) ;;
+    *) export LANG=C.UTF-8 ;;
+esac
+
 # If not running interactively, do nothing.
 case $- in
     *i*) ;;
