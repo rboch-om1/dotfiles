@@ -188,6 +188,23 @@ else
     warn "jq not found; skipping ~/.claude/settings.json merge"
 fi
 
+# 4d. Matt Pocock skills (github.com/mattpocock/skills): installed with
+# --copy so the files live directly in ~/.claude/skills (EBS-persistent)
+# rather than the installer's default symlinks into ~/.agents, which is on
+# the ephemeral home and dangles after every rebuild. Re-running also pulls
+# upstream skill updates. The find first sweeps any dangling symlinks left
+# by an old symlink-mode install.
+mkdir -p "$CLAUDE_DIR/skills"
+find "$CLAUDE_DIR/skills" -maxdepth 1 -xtype l -delete 2>/dev/null
+if command -v npx >/dev/null 2>&1; then
+    log "Installing/updating Matt Pocock skills..."
+    npx -y skills@latest add mattpocock/skills -g -a claude-code -s '*' -y --copy >/dev/null 2>&1 \
+        && log "Matt Pocock skills installed into ~/.claude/skills" \
+        || warn "Matt Pocock skills install failed; existing copies left as-is"
+else
+    warn "npx not found; skipping Matt Pocock skills install"
+fi
+
 # ============================================================================
 # 5. clean_repos.sh maintenance helper  (must live in ~/code; it cleans its
 #    own directory, so it can't go in a generic bin/ on PATH)
