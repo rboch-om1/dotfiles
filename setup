@@ -189,21 +189,36 @@ else
     warn "jq not found; skipping ~/.claude/settings.json merge"
 fi
 
-# 4d. Matt Pocock skills (github.com/mattpocock/skills): installed with
-# --copy so the files live directly in ~/.claude/skills (EBS-persistent)
-# rather than the installer's default symlinks into ~/.agents, which is on
-# the ephemeral home and dangles after every rebuild. Re-running also pulls
-# upstream skill updates. The find first sweeps any dangling symlinks left
-# by an old symlink-mode install.
-mkdir -p "$CLAUDE_DIR/skills"
-find "$CLAUDE_DIR/skills" -maxdepth 1 -xtype l -delete 2>/dev/null
-if command -v npx >/dev/null 2>&1; then
-    log "Installing/updating Matt Pocock skills..."
-    npx -y skills@latest add mattpocock/skills -g -a claude-code -s '*' -y --copy >/dev/null 2>&1 \
-        && log "Matt Pocock skills installed into ~/.claude/skills" \
-        || warn "Matt Pocock skills install failed; existing copies left as-is"
+# 4d. Matt Pocock skills (github.com/mattpocock/skills): installed as a
+# Claude Code plugin (read-only, auto-updating) rather than skills.sh copies
+# into ~/.claude/skills. Plugin state lives under ~/.claude (EBS-persistent),
+# so this is a no-op on machines where it is already registered; it matters
+# on fresh provisions. The rm sweeps copies left by the old skills.sh
+# install, which would shadow/duplicate the plugin's skills.
+POCOCK_SKILLS="ask-matt batch-grill-me claude-handoff code-review codebase-design \
+design-an-interface diagnosing-bugs domain-modeling edit-article \
+git-guardrails-claude-code grill-me grill-with-docs grilling handoff implement \
+improve-codebase-architecture loop-me migrate-to-shoehorn obsidian-vault \
+prototype qa request-refactor-plan research resolving-merge-conflicts \
+scaffold-exercises setup-matt-pocock-skills setup-pre-commit \
+setup-ts-deep-modules tdd teach to-questionnaire to-spec to-tickets triage \
+ubiquitous-language wayfinder wizard writing-beats writing-fragments \
+writing-great-skills writing-shape"
+for s in $POCOCK_SKILLS; do
+    rm -rf "$CLAUDE_DIR/skills/$s"
+done
+if command -v claude >/dev/null 2>&1; then
+    if claude plugin list 2>/dev/null | grep -q "mattpocock-skills"; then
+        log "Matt Pocock skills plugin already installed"
+    else
+        log "Installing Matt Pocock skills plugin..."
+        claude plugin marketplace add mattpocock/skills >/dev/null 2>&1 || true
+        claude plugin install mattpocock-skills@mattpocock >/dev/null 2>&1 \
+            && log "Matt Pocock skills plugin installed" \
+            || warn "Plugin install failed; run manually: claude plugin marketplace add mattpocock/skills && claude plugin install mattpocock-skills@mattpocock"
+    fi
 else
-    warn "npx not found; skipping Matt Pocock skills install"
+    warn "claude CLI not found; install manually: claude plugin marketplace add mattpocock/skills && claude plugin install mattpocock-skills@mattpocock"
 fi
 
 # ============================================================================
