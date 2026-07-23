@@ -39,7 +39,7 @@ log "Using dotfiles repo at: $REPO_DIR"
 log "Symlinking dotfiles..."
 
 # Back up existing REAL files (leave symlinks from previous runs alone).
-for f in .bashrc .bash_profile .tmux.conf .zshenv; do
+for f in .bashrc .bash_profile .tmux.conf .zshenv .zshrc; do
     if [ -f "$HOME/$f" ] && [ ! -L "$HOME/$f" ]; then
         mv "$HOME/$f" "$HOME/${f}.backup"
         log "Backed up existing $f -> ${f}.backup"
@@ -50,7 +50,8 @@ ln -sfn "$REPO_DIR/bash/.bashrc"       "$HOME/.bashrc"
 ln -sfn "$REPO_DIR/bash/.bash_profile" "$HOME/.bash_profile"
 ln -sfn "$REPO_DIR/tmux/.tmux.conf"    "$HOME/.tmux.conf"
 ln -sfn "$REPO_DIR/zsh/.zshenv"        "$HOME/.zshenv"
-log "Symlinked .bashrc, .bash_profile, .tmux.conf, .zshenv"
+ln -sfn "$REPO_DIR/zsh/.zshrc"         "$HOME/.zshrc"
+log "Symlinked .bashrc, .bash_profile, .tmux.conf, .zshenv, .zshrc"
 # NOTE: this replaces any prior ~/.tmux.conf symlink (e.g. one that pointed at
 # /mnt/devdata/.tmux.conf under the old manual-persistence scheme). The tmux
 # config is now versioned here, so a stale /mnt/devdata/.tmux.conf can be

@@ -15,6 +15,8 @@ On every `devenv up` / `devenv rebuild`, the provisioner clones this repo and ru
 | --- | --- |
 | `setup` | Idempotent install script the provisioner runs on every rebuild. |
 | `bash/.bashrc`, `bash/.bash_profile` | Bash config: history, PATH (`~/.local/bin`, `/mnt/devdata/bin`), starship, `CLAUDE_CODE_FORCE_SYNC_OUTPUT`, aliases. |
+| `zsh/.zshenv`, `zsh/.zshrc` | Zsh config: UTF-8 locale for every shell (`.zshenv`); interactive shells get uv's PATH shim and the IPC-socket healer (`.zshrc`). |
+| `shell/vscode-ipc.sh` | Shared bash+zsh pre-prompt hook that repoints a stale `VSCODE_IPC_HOOK_CLI` at the newest live socket, so browser-opening CLIs (e.g. `aws sso login`) keep working in tmux panes that outlive an editor reconnect. |
 | `docker/config.json` | Enables the ECR credential helper (`credsStore: ecr-login`). |
 | `git/gitconfig_template` | Shared git config, *included* by a machine-local `~/.gitconfig` (identity stays local). |
 | `tmux/.tmux.conf` | tmux: mouse, 50k scrollback, OSC-52 clipboard over SSH, vi copy-mode, browser-tab-style status bar. |
@@ -26,8 +28,9 @@ On every `devenv up` / `devenv rebuild`, the provisioner clones this repo and ru
 
 ## What `setup` does
 
-1. **Symlinks** `~/.bashrc`, `~/.bash_profile`, `~/.tmux.conf` to the tracked files
-   (backing up any pre-existing real files to `*.backup`).
+1. **Symlinks** `~/.bashrc`, `~/.bash_profile`, `~/.tmux.conf`, `~/.zshenv`,
+   `~/.zshrc` to the tracked files (backing up any pre-existing real files to
+   `*.backup`).
 2. **gitconfig** — ensures `~/.gitconfig` *includes* `git/gitconfig_template` and
    sets a machine-local identity **only if none exists**. Skipped inside devcontainers.
 3. **Docker** — symlinks `~/.docker/config.json` for ECR auth.

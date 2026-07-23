@@ -46,6 +46,15 @@ case ":$PATH:" in
     *) export PATH="/mnt/devdata/bin:$PATH" ;;
 esac
 
+# ---- Editor-server IPC (VS Code / Cursor) ----------------------------------
+# Heal a stale VSCODE_IPC_HOOK_CLI before every prompt (tmux panes outlive the
+# editor connection that spawned them) — rationale in shell/vscode-ipc.sh.
+# Resolve the repo from this file's own symlink so the repo can live anywhere.
+if [ -f "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../shell/vscode-ipc.sh" ]; then
+    . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../shell/vscode-ipc.sh"
+    PROMPT_COMMAND="fix_vscode_ipc; ${PROMPT_COMMAND:-}"
+fi
+
 # ---- Colors / pager -------------------------------------------------------
 export CLICOLOR=1
 export LESS='-FRX'              # quit if one screen, keep colors, no init clear
